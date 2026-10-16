@@ -5,6 +5,12 @@ export const FIND_APPLICATION_REGISTRATION_STATS = gql`
     findApplicationRegistrationStats(id: $id) {
       activeInstalls
       autoUpdateEnabled
+      totalCreditsUsed
+      creditsUsedBreakdown {
+        label
+        operation
+        creditsUsed
+      }
       suspendedInstalls
       mostInstalledVersion
       versionDistribution {
