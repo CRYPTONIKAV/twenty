@@ -235,6 +235,30 @@ export const buildCalendarEventParticipantStandardFlatFieldMetadatas = ({
     twentyStandardApplicationId,
     now,
   }),
+  applicationId: createStandardFieldFlatMetadata({
+    objectName,
+    workspaceId,
+    context: {
+      fieldName: 'applicationId',
+      type: FieldMetadataType.UUID,
+      label: i18nLabel(
+        msg({ message: `Application ID`, context: 'fieldMetadata.label' }),
+      ),
+      description: i18nLabel(
+        msg({
+          message: `Installed app participating in the calendar event`,
+          context: 'fieldMetadata.description',
+        }),
+      ),
+      icon: 'IconApps',
+      isNullable: true,
+      isUIEditable: false,
+    },
+    standardObjectMetadataRelatedEntityIds,
+    dependencyFlatEntityMaps,
+    twentyStandardApplicationId,
+    now,
+  }),
   handle: createStandardFieldFlatMetadata({
     objectName,
     workspaceId,

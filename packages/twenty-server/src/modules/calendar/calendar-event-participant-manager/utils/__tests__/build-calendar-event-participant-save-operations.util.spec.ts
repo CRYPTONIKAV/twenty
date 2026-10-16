@@ -188,3 +188,31 @@ describe('buildCalendarEventParticipantSaveOperations', () => {
     },
   );
 });
+
+describe('application participants', () => {
+  it('preserves an app participant missing from the provider calendar', () => {
+    const operations = buildOperations({
+      fetchedParticipants: [],
+      existingParticipants: [
+        buildExistingParticipant({ applicationId: 'application-id' }),
+      ],
+    });
+
+    expect(operations.participantIdsToDelete).toEqual([]);
+  });
+
+  it('keeps provider participants separate when they share an app handle', () => {
+    const operations = buildOperations({
+      fetchedParticipants: [
+        buildFetchedParticipant({ displayName: 'Provider participant' }),
+      ],
+      existingParticipants: [
+        buildExistingParticipant({ applicationId: 'application-id' }),
+      ],
+    });
+
+    expect(operations.participantsToInsert).toHaveLength(1);
+    expect(operations.participantsToUpdate).toEqual([]);
+    expect(operations.participantIdsToDelete).toEqual([]);
+  });
+});

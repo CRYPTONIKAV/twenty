@@ -12,6 +12,7 @@ export enum CalendarEventParticipantResponseStatus {
 }
 
 export class CalendarEventParticipantWorkspaceEntity extends BaseWorkspaceEntity {
+  applicationId: string | null;
   handle: string | null;
   displayName: string | null;
   isOrganizer: boolean;

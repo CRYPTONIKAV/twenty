@@ -46,6 +46,10 @@ export const buildCalendarEventParticipantSaveOperations = ({
   >();
 
   for (const existingParticipant of existingParticipants) {
+    if (isDefined(existingParticipant.applicationId)) {
+      continue;
+    }
+
     const participantKey = buildParticipantKey(existingParticipant);
 
     if (existingParticipantByKey.has(participantKey)) {
@@ -113,6 +117,10 @@ export const buildCalendarEventParticipantSaveOperations = ({
   );
 
   for (const existingParticipant of existingParticipants) {
+    if (isDefined(existingParticipant.applicationId)) {
+      continue;
+    }
+
     if (fetchedParticipantKeys.has(buildParticipantKey(existingParticipant))) {
       continue;
     }
