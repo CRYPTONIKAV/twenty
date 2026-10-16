@@ -10,8 +10,14 @@ export const parseFilterContent = (filterQuery: string): string[] => {
   const isWithinQuotes = () => isWithinDoubleQuotes || isWithinSingleQuotes;
   const isValueStart = (character: string) =>
     [':', '[', ','].includes(character);
+  const isQuoteBoundary = (next: string | undefined) =>
+    next === undefined || [',', ']', ')'].includes(next);
 
-  for (const c of filterQuery) {
+  const characters = [...filterQuery];
+
+  for (let index = 0; index < characters.length; index++) {
+    const c = characters[index];
+    const next = characters[index + 1];
     let shouldPersistCharacter = parenthesisCounter >= 1;
 
     if (c === '(' && !isWithinQuotes()) {
@@ -26,19 +32,22 @@ export const parseFilterContent = (filterQuery: string): string[] => {
     if (['[', ']'].includes(c) && !isWithinQuotes())
       isWithinBrackets = !isWithinBrackets;
 
-    // Quotes only delimit at value starts; mid-value apostrophes stay
-    // literal, as do brackets and parens inside a quoted string.
+    // Quotes delimit at value starts; a matching quote inside a string
+    // only closes before a delimiter, so mid-value apostrophes stay
+    // literal while brackets and parens inside stay ignored.
     if (
       c === '"' &&
       !isWithinSingleQuotes &&
-      (isWithinDoubleQuotes || isValueStart(previousCharacter))
+      (isValueStart(previousCharacter) ||
+        (isWithinDoubleQuotes && isQuoteBoundary(next)))
     )
       isWithinDoubleQuotes = !isWithinDoubleQuotes;
 
     if (
       c === "'" &&
       !isWithinDoubleQuotes &&
-      (isWithinSingleQuotes || isValueStart(previousCharacter))
+      (isValueStart(previousCharacter) ||
+        (isWithinSingleQuotes && isQuoteBoundary(next)))
     )
       isWithinSingleQuotes = !isWithinSingleQuotes;
 

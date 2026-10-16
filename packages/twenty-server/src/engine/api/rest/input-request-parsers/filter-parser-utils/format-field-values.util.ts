@@ -6,29 +6,36 @@ import { isDefined } from 'twenty-shared/utils';
 import { type FieldValue } from 'src/engine/api/rest/core/types/field-value.type';
 
 // Commas inside quoted items do not separate values. Quotes only open
-// at item starts, so mid-value apostrophes stay literal.
+// at item starts and close before a delimiter, so mid-value apostrophes
+// stay literal even next to commas.
 const splitRespectingQuotes = (values: string): string[] => {
   const parts: string[] = [];
   let current = '';
   let isWithinDoubleQuotes = false;
   let isWithinSingleQuotes = false;
   let previousCharacter = '';
+  const characters = [...values];
 
-  for (const c of values) {
+  const isQuoteBoundary = (next: string | undefined) =>
+    next === undefined || [',', ']', ')'].includes(next);
+
+  for (let index = 0; index < characters.length; index++) {
+    const c = characters[index];
+    const next = characters[index + 1];
     const atItemStart =
       previousCharacter === '' || [':', '[', ','].includes(previousCharacter);
 
     if (
       c === '"' &&
       !isWithinSingleQuotes &&
-      (isWithinDoubleQuotes || atItemStart)
+      (atItemStart || (isWithinDoubleQuotes && isQuoteBoundary(next)))
     )
       isWithinDoubleQuotes = !isWithinDoubleQuotes;
 
     if (
       c === "'" &&
       !isWithinDoubleQuotes &&
-      (isWithinSingleQuotes || atItemStart)
+      (atItemStart || (isWithinSingleQuotes && isQuoteBoundary(next)))
     )
       isWithinSingleQuotes = !isWithinSingleQuotes;
 

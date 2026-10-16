@@ -64,6 +64,14 @@ describe('parseFilterContent', () => {
     ).toEqual(["name.lastName[eq]:O'Brien", 'city[eq]:Paris']);
   });
 
+  it('should keep apostrophe-and-comma values intact (#28034)', () => {
+    expect(
+      parseFilterContent(
+        'and(name.lastName[eq]:"O\'Brien, Inc.",city[eq]:"Paris")',
+      ),
+    ).toEqual(['name.lastName[eq]:"O\'Brien, Inc."', 'city[eq]:"Paris"']);
+  });
+
   it('should ignore brackets inside quoted strings (#28034)', () => {
     expect(
       parseFilterContent('and(fieldText[eq]:"a[b",fieldText[eq]:2)'),

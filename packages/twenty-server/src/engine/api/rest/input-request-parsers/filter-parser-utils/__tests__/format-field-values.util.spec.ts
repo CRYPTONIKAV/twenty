@@ -85,4 +85,10 @@ describe('formatFieldValue', () => {
       'c',
     ]);
   });
+
+  it('should keep apostrophe-and-comma values intact (#28034)', () => {
+    expect(
+      formatFieldValue('["O\'Brien, Inc.","Globex"]', undefined, 'in'),
+    ).toEqual(["O'Brien, Inc.", 'Globex']);
+  });
 });
