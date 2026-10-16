@@ -79,4 +79,28 @@ describe('parseFilter', () => {
       ],
     });
   });
+
+  it('should parse quoted values with apostrophes (#28034)', () => {
+    expect(
+      parseFilter('and(name.lastName[eq]:"O\'Brien",city[eq]:"Paris")'),
+    ).toEqual({
+      and: [
+        { name: { lastName: { eq: "O'Brien" } } },
+        { city: { eq: 'Paris' } },
+      ],
+    });
+  });
+
+  it('should combine sibling root groups with default and (#28034)', () => {
+    expect(
+      parseFilter(
+        'and(or(city[eq]:"Paris",city[eq]:"Lyon"),not(name[eq]:"Bob"))',
+      ),
+    ).toEqual({
+      and: [
+        { or: [{ city: { eq: 'Paris' } }, { city: { eq: 'Lyon' } }] },
+        { not: { name: { eq: 'Bob' } } },
+      ],
+    });
+  });
 });

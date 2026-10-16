@@ -5,6 +5,49 @@ import { isDefined } from 'twenty-shared/utils';
 
 import { type FieldValue } from 'src/engine/api/rest/core/types/field-value.type';
 
+// Commas inside quoted items do not separate values. Quotes only open
+// at item starts, so mid-value apostrophes stay literal.
+const splitRespectingQuotes = (values: string): string[] => {
+  const parts: string[] = [];
+  let current = '';
+  let isWithinDoubleQuotes = false;
+  let isWithinSingleQuotes = false;
+  let previousCharacter = '';
+
+  for (const c of values) {
+    const atItemStart =
+      previousCharacter === '' || [':', '[', ','].includes(previousCharacter);
+
+    if (
+      c === '"' &&
+      !isWithinSingleQuotes &&
+      (isWithinDoubleQuotes || atItemStart)
+    )
+      isWithinDoubleQuotes = !isWithinDoubleQuotes;
+
+    if (
+      c === "'" &&
+      !isWithinDoubleQuotes &&
+      (isWithinSingleQuotes || atItemStart)
+    )
+      isWithinSingleQuotes = !isWithinSingleQuotes;
+
+    if (c === ',' && !isWithinDoubleQuotes && !isWithinSingleQuotes) {
+      parts.push(current);
+      current = '';
+      previousCharacter = c;
+      continue;
+    }
+
+    current += c;
+    previousCharacter = c;
+  }
+
+  parts.push(current);
+
+  return parts;
+};
+
 export const formatFieldValue = (
   value: string,
   fieldType?: FieldMetadataType,
@@ -18,9 +61,9 @@ export const formatFieldValue = (
     }
     const stringValues = value.substring(1, value.length - 1);
 
-    return stringValues
-      .split(',')
-      .map((value) => formatFieldValue(value, fieldType));
+    return splitRespectingQuotes(stringValues).map((value) =>
+      formatFieldValue(value, fieldType),
+    );
   }
   if (comparator === 'is') {
     return value;

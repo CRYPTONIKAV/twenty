@@ -51,4 +51,22 @@ describe('parseFilterContent', () => {
       "fieldText[eq]:'val,ue'",
     ]);
   });
+
+  it('should not split on apostrophe inside double quotes (#28034)', () => {
+    expect(
+      parseFilterContent('and(name.lastName[eq]:"O\'Brien",city[eq]:"Paris")'),
+    ).toEqual(['name.lastName[eq]:"O\'Brien"', 'city[eq]:"Paris"']);
+  });
+
+  it('should not open a string on a mid-value apostrophe (#28034)', () => {
+    expect(
+      parseFilterContent("and(name.lastName[eq]:O'Brien,city[eq]:Paris)"),
+    ).toEqual(["name.lastName[eq]:O'Brien", 'city[eq]:Paris']);
+  });
+
+  it('should ignore brackets inside quoted strings (#28034)', () => {
+    expect(
+      parseFilterContent('and(fieldText[eq]:"a[b",fieldText[eq]:2)'),
+    ).toEqual(['fieldText[eq]:"a[b"', 'fieldText[eq]:2']);
+  });
 });
