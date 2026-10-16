@@ -215,7 +215,7 @@ describe('Admin panel application registration stats and installed workspaces (i
         findAdminApplicationRegistrationStats(id: $id) {
           totalCreditsUsed
           creditsUsedBreakdown {
-            key
+            label
             resource
             operation
             creditsUsed
@@ -302,13 +302,13 @@ describe('Admin panel application registration stats and installed workspaces (i
         totalCreditsUsed: 3.000001,
         creditsUsedBreakdown: [
           {
-            key: 'HISTORICAL_OPERATION',
+            label: 'HISTORICAL_OPERATION',
             resource: null,
             operation: null,
             creditsUsed: 2,
           },
           {
-            key: 'CODE_EXECUTION',
+            label: null,
             resource: 'LOGIC_FUNCTION',
             operation: 'CODE_EXECUTION',
             creditsUsed: 1.000001,

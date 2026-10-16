@@ -3,7 +3,7 @@ import { isDefined } from 'twenty-shared/utils';
 import { type FlatApplicationCacheMaps } from 'src/engine/core-modules/application/types/flat-application-cache-maps.type';
 import {
   type UsageApplicationBreakdownItem,
-  type CreditUsedItem,
+  type UsageBreakdownItem,
 } from 'src/engine/core-modules/usage/services/usage-analytics.service';
 
 type ConsolidateUsageByApplicationParams = {
@@ -16,7 +16,7 @@ type ConsolidateUsageByApplicationParams = {
 export const consolidateUsageByApplication = ({
   items,
   flatApplicationMaps,
-}: ConsolidateUsageByApplicationParams): CreditUsedItem[] => {
+}: ConsolidateUsageByApplicationParams): UsageBreakdownItem[] => {
   const creditsByKey = new Map<string, number>();
 
   for (const item of items) {

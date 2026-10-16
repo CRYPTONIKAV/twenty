@@ -1163,8 +1163,6 @@ export interface CreateEmailGroupChannelOutput {
 
 export interface CreditUsedItem {
     creditsUsed: Scalars['Float']
-    /** @deprecated Use resource and operation for operation breakdowns. */
-    key: Scalars['String']
     label?: Scalars['String']
     operation?: UsageOperationType
     resource?: UsageResourceType
@@ -3403,11 +3401,8 @@ export interface UsageAnalytics {
 
 export interface UsageBreakdownItem {
     creditsUsed: Scalars['Float']
-    /** @deprecated Use resource and operation for operation breakdowns. */
     key: Scalars['String']
     label?: Scalars['String']
-    operation?: UsageOperationType
-    resource?: UsageResourceType
     __typename: 'UsageBreakdownItem'
 }
 
@@ -5286,8 +5281,6 @@ export interface CreateWebhookInput {description?: (Scalars['String'] | null),id
 
 export interface CreditUsedItemGenqlSelection{
     creditsUsed?: boolean | number
-    /** @deprecated Use resource and operation for operation breakdowns. */
-    key?: boolean | number
     label?: boolean | number
     operation?: boolean | number
     resource?: boolean | number
@@ -7997,11 +7990,8 @@ export interface UsageAnalyticsInput {operationTypes?: (UsageOperationType[] | n
 
 export interface UsageBreakdownItemGenqlSelection{
     creditsUsed?: boolean | number
-    /** @deprecated Use resource and operation for operation breakdowns. */
     key?: boolean | number
     label?: boolean | number
-    operation?: boolean | number
-    resource?: boolean | number
     __typename?: boolean | number
     __scalar?: boolean | number
 }

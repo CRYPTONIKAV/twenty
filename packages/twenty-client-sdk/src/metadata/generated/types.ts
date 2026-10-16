@@ -3738,9 +3738,6 @@ export default {
             "creditsUsed": [
                 11
             ],
-            "key": [
-                1
-            ],
             "label": [
                 1
             ],
@@ -13809,12 +13806,6 @@ export default {
             ],
             "label": [
                 1
-            ],
-            "operation": [
-                579
-            ],
-            "resource": [
-                586
             ],
             "__typename": [
                 1

@@ -7,11 +7,6 @@ import { UsageResourceType } from 'src/engine/core-modules/usage/enums/usage-res
 
 @ObjectType('CreditUsedItem')
 export class CreditUsedItemDTO {
-  @Field(() => String, {
-    deprecationReason: 'Use resource and operation for operation breakdowns.',
-  })
-  key: string;
-
   @Field(() => UsageResourceType, { nullable: true })
   resource?: UsageResourceType | null;
 

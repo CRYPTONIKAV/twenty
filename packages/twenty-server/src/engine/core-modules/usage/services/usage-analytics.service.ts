@@ -22,6 +22,7 @@ import {
   CREDITS_USED_REFRESH_LOCK_TTL,
 } from 'src/engine/core-modules/usage/constants/credits-used-cache.constant';
 import { type SpenderType } from 'src/engine/core-modules/usage-limit/types/spender-type.type';
+import { type CreditUsedItemDTO } from 'src/engine/core-modules/usage/dtos/credit-used-item.dto';
 import { UsageOperationType } from 'src/engine/core-modules/usage/enums/usage-operation-type.enum';
 import { UsageResourceType } from 'src/engine/core-modules/usage/enums/usage-resource-type.enum';
 import { type UsageUnit } from 'src/engine/core-modules/usage/enums/usage-unit.enum';
@@ -36,11 +37,9 @@ import { fillUsageTimeSeriesGaps } from 'src/engine/core-modules/usage/utils/fil
 import { toDisplayCredits } from 'src/engine/core-modules/usage/utils/to-display-credits.util';
 import { toDollars } from 'src/engine/core-modules/usage/utils/to-dollars.util';
 
-export type CreditUsedItem = {
+export type UsageBreakdownItem = {
   key: string;
   label?: string;
-  resource?: UsageResourceType | null;
-  operation?: UsageOperationType | null;
   creditsUsed: number;
 };
 
@@ -101,11 +100,11 @@ export class UsageAnalyticsService {
 
   async getCreditsUsedBreakdownForRegistration(
     applicationRegistrationId: string,
-  ): Promise<CreditUsedItem[] | null> {
+  ): Promise<CreditUsedItemDTO[] | null> {
     const cacheKey = `registration-credits-used:v1:${applicationRegistrationId}`;
     const readCache = () =>
       this.cacheStorageService
-        .get<{ creditsUsedBreakdown: CreditUsedItem[] | null }>(cacheKey)
+        .get<{ creditsUsedBreakdown: CreditUsedItemDTO[] | null }>(cacheKey)
         .then((cached) => cached?.creditsUsedBreakdown)
         .catch((error) => {
           this.logger.warn(
@@ -166,7 +165,7 @@ export class UsageAnalyticsService {
 
   private async loadCreditsUsedBreakdown(
     applicationRegistrationId: string,
-  ): Promise<CreditUsedItem[] | null> {
+  ): Promise<CreditUsedItemDTO[] | null> {
     try {
       const applications = await this.coreDataSource
         .createQueryBuilder(ApplicationEntity, 'application')
@@ -195,7 +194,7 @@ export class UsageAnalyticsService {
 
   async getCreditsUsedBreakdownForApplications(
     applicationIds: string[],
-  ): Promise<CreditUsedItem[]> {
+  ): Promise<CreditUsedItemDTO[]> {
     const rows = await this.clickHouseService.selectOrThrow<
       BreakdownRowMicro<'resourceType' | 'operationType'>
     >(
@@ -209,18 +208,22 @@ export class UsageAnalyticsService {
       { applicationIds },
     );
 
-    return rows.map(({ resourceType, operationType, creditsUsedMicro }) => ({
-      key: operationType,
-      resource:
-        Object.values(UsageResourceType).find(
-          (resource) => resource === resourceType,
-        ) ?? null,
-      operation:
+    return rows.map(({ resourceType, operationType, creditsUsedMicro }) => {
+      const operation =
         Object.values(UsageOperationType).find(
           (operation) => operation === operationType,
-        ) ?? null,
-      creditsUsed: toDisplayCredits(Number(creditsUsedMicro)),
-    }));
+        ) ?? null;
+
+      return {
+        resource:
+          Object.values(UsageResourceType).find(
+            (resource) => resource === resourceType,
+          ) ?? null,
+        operation,
+        label: operation === null ? operationType : undefined,
+        creditsUsed: toDisplayCredits(Number(creditsUsedMicro)),
+      };
+    });
   }
 
   async getConsumptionRowsForAllScopes({
@@ -339,7 +342,7 @@ export class UsageAnalyticsService {
     periodStart: Date;
     periodEnd: Date;
     useDollarMode?: boolean;
-  }): Promise<CreditUsedItem[]> {
+  }): Promise<UsageBreakdownItem[]> {
     const aiOperationTypes = ['AI_CHAT_TOKEN', 'AI_WORKFLOW_TOKEN'];
 
     const convert = params.useDollarMode ? toDollars : toDisplayCredits;
@@ -372,7 +375,7 @@ export class UsageAnalyticsService {
     }));
   }
 
-  async getUsageByUser(params: PeriodParams): Promise<CreditUsedItem[]> {
+  async getUsageByUser(params: PeriodParams): Promise<UsageBreakdownItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'userWorkspaceId',
@@ -380,7 +383,7 @@ export class UsageAnalyticsService {
     });
   }
 
-  async getUsageByModel(params: PeriodParams): Promise<CreditUsedItem[]> {
+  async getUsageByModel(params: PeriodParams): Promise<UsageBreakdownItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'resourceContext',
@@ -390,7 +393,7 @@ export class UsageAnalyticsService {
 
   async getUsageByOperationType(
     params: PeriodParams & { userWorkspaceId?: string },
-  ): Promise<CreditUsedItem[]> {
+  ): Promise<UsageBreakdownItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'operationType',
@@ -538,7 +541,7 @@ export class UsageAnalyticsService {
     groupByField: GroupByField;
     extraWhere?: string;
     extraParams?: Record<string, unknown>;
-  }): Promise<CreditUsedItem[]> {
+  }): Promise<UsageBreakdownItem[]> {
     if (
       !ALLOWED_GROUP_BY_FIELDS.includes(
         groupByField as (typeof ALLOWED_GROUP_BY_FIELDS)[number],

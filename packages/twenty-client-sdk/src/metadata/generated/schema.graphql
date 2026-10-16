@@ -1653,7 +1653,6 @@ input CreateWebhookInput {
 
 type CreditUsedItem {
   creditsUsed: Float!
-  key: String! @deprecated(reason: "Use resource and operation for operation breakdowns.")
   label: String
   operation: UsageOperationType
   resource: UsageResourceType
@@ -5314,10 +5313,8 @@ input UsageAnalyticsInput {
 
 type UsageBreakdownItem {
   creditsUsed: Float!
-  key: String! @deprecated(reason: "Use resource and operation for operation breakdowns.")
+  key: String!
   label: String
-  operation: UsageOperationType
-  resource: UsageResourceType
 }
 
 type UsageLimit {

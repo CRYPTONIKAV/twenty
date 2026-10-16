@@ -431,8 +431,6 @@ export type CreateUsageLimitInput = {
 export type CreditUsedItem = {
   __typename?: 'CreditUsedItem';
   creditsUsed: Scalars['Float']['output'];
-  /** @deprecated Use resource and operation for operation breakdowns. */
-  key: Scalars['String']['output'];
   label?: Maybe<Scalars['String']['output']>;
   operation?: Maybe<UsageOperationType>;
   resource?: Maybe<UsageResourceType>;
@@ -1069,11 +1067,8 @@ export enum UpgradeHealth {
 export type UsageBreakdownItem = {
   __typename?: 'UsageBreakdownItem';
   creditsUsed: Scalars['Float']['output'];
-  /** @deprecated Use resource and operation for operation breakdowns. */
   key: Scalars['String']['output'];
   label?: Maybe<Scalars['String']['output']>;
-  operation?: Maybe<UsageOperationType>;
-  resource?: Maybe<UsageResourceType>;
 };
 
 export enum UsageOperationType {

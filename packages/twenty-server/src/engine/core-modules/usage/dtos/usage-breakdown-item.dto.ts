@@ -1,8 +1,15 @@
 /* @license Enterprise */
 
-import { ObjectType } from '@nestjs/graphql';
-
-import { CreditUsedItemDTO } from 'src/engine/core-modules/usage/dtos/credit-used-item.dto';
+import { Field, Float, ObjectType } from '@nestjs/graphql';
 
 @ObjectType('UsageBreakdownItem')
-export class UsageBreakdownItemDTO extends CreditUsedItemDTO {}
+export class UsageBreakdownItemDTO {
+  @Field(() => String)
+  key: string;
+
+  @Field(() => String, { nullable: true })
+  label?: string;
+
+  @Field(() => Float)
+  creditsUsed: number;
+}
