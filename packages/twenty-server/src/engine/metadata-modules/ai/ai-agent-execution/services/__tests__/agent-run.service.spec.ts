@@ -71,6 +71,10 @@ const buildService = () => {
     }),
   };
 
+  const agentChatThreadService = {
+    createThreadIfMissing: jest.fn().mockResolvedValue(undefined),
+  };
+
   const service = new AgentRunService(
     agentActorContextService as never,
     agentRunnerService as never,
@@ -79,12 +83,14 @@ const buildService = () => {
     apiKeyService as never,
     { findById: jest.fn().mockResolvedValue(APPLICATION) } as never,
     { findOne: jest.fn().mockResolvedValue(AGENT) } as never,
+    agentChatThreadService as never,
   );
 
   return {
     service,
     agentRunnerService,
     agentActorContextService,
+    agentChatThreadService,
     apiKeyRoleService,
     apiKeyService,
   };
@@ -236,6 +242,42 @@ describe('AgentRunService', () => {
         workspaceMemberId: RUN_AS_ACTOR.workspaceMemberId,
       },
     });
+  });
+
+  it('gives the thread to the member it runs as before the run starts', async () => {
+    const { service, agentRunnerService, agentChatThreadService } =
+      buildService();
+
+    await run(service, {
+      input: userInput('Hello'),
+      thread: { key: 'C123:1700000000.000100', title: 'Acme renewal' },
+      runAsWorkspaceMemberId: 'workspace-member-id',
+    });
+
+    expect(agentChatThreadService.createThreadIfMissing).toHaveBeenCalledWith({
+      threadId: buildAgentRunThreadId({
+        applicationId: APPLICATION.id,
+        agentId: AGENT.id,
+        threadKey: 'C123:1700000000.000100',
+      }),
+      workspaceId: 'workspace-id',
+      workspaceMemberId: 'workspace-member-id',
+      title: 'Acme renewal',
+    });
+    expect(
+      agentChatThreadService.createThreadIfMissing.mock.invocationCallOrder[0],
+    ).toBeLessThan(agentRunnerService.run.mock.invocationCallOrder[0]);
+  });
+
+  it('leaves a thread the application runs as itself without an owner', async () => {
+    const { service, agentChatThreadService } = buildService();
+
+    await run(service, {
+      input: userInput('Hello'),
+      thread: { key: 'thread' },
+    });
+
+    expect(agentChatThreadService.createThreadIfMissing).not.toHaveBeenCalled();
   });
 
   it('keeps the additional instructions with the run rather than in its messages', async () => {

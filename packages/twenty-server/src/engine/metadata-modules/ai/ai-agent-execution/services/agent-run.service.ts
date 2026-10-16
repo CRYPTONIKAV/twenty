@@ -51,6 +51,7 @@ import { buildAgentRunThreadId } from 'src/engine/metadata-modules/ai/ai-agent-e
 import { resolveRunAgentMessagesOrThrow } from 'src/engine/metadata-modules/ai/ai-agent-execution/utils/resolve-run-agent-messages-or-throw.util';
 import { AGENT_RUN_BASE_SYSTEM_PROMPT } from 'src/engine/metadata-modules/ai/ai-agent/constants/agent-run-base-system-prompt.const';
 import { AgentEntity } from 'src/engine/metadata-modules/ai/ai-agent/entities/agent.entity';
+import { AgentChatThreadService } from 'src/engine/metadata-modules/ai/ai-chat/services/agent-chat-thread.service';
 import {
   AiException,
   AiExceptionCode,
@@ -100,6 +101,7 @@ export class AgentRunService implements AgentRunCallerHandler, OnModuleInit {
     private readonly applicationLookupService: ApplicationLookupService,
     @InjectWorkspaceScopedRepository(AgentEntity)
     private readonly agentRepository: WorkspaceScopedRepository<AgentEntity>,
+    private readonly agentChatThreadService: AgentChatThreadService,
   ) {}
 
   onModuleInit(): void {
@@ -241,14 +243,25 @@ export class AgentRunService implements AgentRunCallerHandler, OnModuleInit {
       ref: { ...callerRef, createdBy },
     };
 
+    const title = isNonEmptyString(thread?.title) ? thread.title : agent.label;
+
     try {
+      if (isDefined(thread) && isDefined(runAsContext)) {
+        await this.agentChatThreadService.createThreadIfMissing({
+          threadId,
+          workspaceId: workspace.id,
+          workspaceMemberId: runAsContext.authContext.workspaceMemberId,
+          title,
+        });
+      }
+
       const { outcome } = await this.agentRunnerService.run({
         workspaceId: workspace.id,
         conversation: { threadId, isCreated: !isDefined(thread) },
         caller,
         spec: {
           agentId: agent.id,
-          title: isNonEmptyString(thread?.title) ? thread.title : agent.label,
+          title,
           baseSystemPrompt: AGENT_RUN_BASE_SYSTEM_PROMPT,
           // kept with the run rather than in its messages, so a run that waits still has them when it goes on
           instructions: input.additionalInstructions ?? null,
