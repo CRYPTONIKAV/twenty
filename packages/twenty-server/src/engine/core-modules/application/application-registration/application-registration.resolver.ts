@@ -2,12 +2,15 @@ import { UseFilters, UseGuards, UsePipes } from '@nestjs/common';
 import {
   Args,
   Context,
+  Info,
   Mutation,
   Parent,
   Query,
   ResolveField,
 } from '@nestjs/graphql';
 
+import { type GraphQLResolveInfo } from 'graphql';
+import graphqlFields from 'graphql-fields';
 import GraphQLUpload from 'graphql-upload/GraphQLUpload.mjs';
 import { PermissionFlagType } from 'twenty-shared/constants';
 import { FileFolder } from 'twenty-shared/types';
@@ -216,10 +219,16 @@ export class ApplicationRegistrationResolver {
     })
     applicationRegistrationId: string,
     @AuthWorkspace() { id: workspaceId }: WorkspaceEntity,
+    @Info() info: GraphQLResolveInfo,
   ): Promise<ApplicationRegistrationStatsDTO> {
+    const fields = graphqlFields(info);
+
     return this.applicationRegistrationService.getStats({
       applicationRegistrationId,
       ownerWorkspaceId: workspaceId,
+      includeCreditsUsed:
+        isDefined(fields.creditsUsedBreakdown) ||
+        isDefined(fields.totalCreditsUsed),
     });
   }
 

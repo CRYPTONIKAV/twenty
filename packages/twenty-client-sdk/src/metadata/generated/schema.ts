@@ -453,8 +453,10 @@ export type ApplicationRegistrationSourceType = 'LOCAL' | 'NPM' | 'OAUTH_ONLY' |
 export interface ApplicationRegistrationStats {
     activeInstalls: Scalars['Int']
     autoUpdateEnabled: Scalars['Int']
+    creditsUsedBreakdown?: CreditUsedItem[]
     mostInstalledVersion?: Scalars['String']
     suspendedInstalls: Scalars['Int']
+    totalCreditsUsed?: Scalars['Float']
     versionDistribution: VersionDistributionEntry[]
     __typename: 'ApplicationRegistrationStats'
 }
@@ -1157,6 +1159,16 @@ export interface CreateEmailGroupChannelOutput {
     forwardingAddress: Scalars['String']
     messageChannel: MessageChannel
     __typename: 'CreateEmailGroupChannelOutput'
+}
+
+export interface CreditUsedItem {
+    creditsUsed: Scalars['Float']
+    /** @deprecated Use resource and operation for operation breakdowns. */
+    key: Scalars['String']
+    label?: Scalars['String']
+    operation?: UsageOperationType
+    resource?: UsageResourceType
+    __typename: 'CreditUsedItem'
 }
 
 
@@ -3391,8 +3403,11 @@ export interface UsageAnalytics {
 
 export interface UsageBreakdownItem {
     creditsUsed: Scalars['Float']
+    /** @deprecated Use resource and operation for operation breakdowns. */
     key: Scalars['String']
     label?: Scalars['String']
+    operation?: UsageOperationType
+    resource?: UsageResourceType
     __typename: 'UsageBreakdownItem'
 }
 
@@ -4434,8 +4449,10 @@ export interface ApplicationRegistrationGenqlSelection{
 export interface ApplicationRegistrationStatsGenqlSelection{
     activeInstalls?: boolean | number
     autoUpdateEnabled?: boolean | number
+    creditsUsedBreakdown?: CreditUsedItemGenqlSelection
     mostInstalledVersion?: boolean | number
     suspendedInstalls?: boolean | number
+    totalCreditsUsed?: boolean | number
     versionDistribution?: VersionDistributionEntryGenqlSelection
     __typename?: boolean | number
     __scalar?: boolean | number
@@ -5266,6 +5283,17 @@ openRecordIn?: (ViewOpenRecordIn | null),position?: (Scalars['Float'] | null),sh
 export interface CreateViewSortInput {direction?: (ViewSortDirection | null),fieldMetadataId: Scalars['UUID'],id?: (Scalars['UUID'] | null),subFieldName?: (Scalars['String'] | null),viewId: Scalars['UUID']}
 
 export interface CreateWebhookInput {description?: (Scalars['String'] | null),id?: (Scalars['UUID'] | null),operations: Scalars['String'][],secret?: (Scalars['String'] | null),targetUrl: Scalars['String']}
+
+export interface CreditUsedItemGenqlSelection{
+    creditsUsed?: boolean | number
+    /** @deprecated Use resource and operation for operation breakdowns. */
+    key?: boolean | number
+    label?: boolean | number
+    operation?: boolean | number
+    resource?: boolean | number
+    __typename?: boolean | number
+    __scalar?: boolean | number
+}
 
 export interface CursorPaging {
 /** Paginate after opaque cursor */
@@ -7969,8 +7997,11 @@ export interface UsageAnalyticsInput {operationTypes?: (UsageOperationType[] | n
 
 export interface UsageBreakdownItemGenqlSelection{
     creditsUsed?: boolean | number
+    /** @deprecated Use resource and operation for operation breakdowns. */
     key?: boolean | number
     label?: boolean | number
+    operation?: boolean | number
+    resource?: boolean | number
     __typename?: boolean | number
     __scalar?: boolean | number
 }
@@ -9419,6 +9450,14 @@ export interface WorkspaceUrlsAndIdGenqlSelection{
     export const isCreateEmailGroupChannelOutput = (obj?: { __typename?: any } | null): obj is CreateEmailGroupChannelOutput => {
       if (!obj?.__typename) throw new Error('__typename is missing in "isCreateEmailGroupChannelOutput"')
       return CreateEmailGroupChannelOutput_possibleTypes.includes(obj.__typename)
+    }
+    
+
+
+    const CreditUsedItem_possibleTypes: string[] = ['CreditUsedItem']
+    export const isCreditUsedItem = (obj?: { __typename?: any } | null): obj is CreditUsedItem => {
+      if (!obj?.__typename) throw new Error('__typename is missing in "isCreditUsedItem"')
+      return CreditUsedItem_possibleTypes.includes(obj.__typename)
     }
     
 

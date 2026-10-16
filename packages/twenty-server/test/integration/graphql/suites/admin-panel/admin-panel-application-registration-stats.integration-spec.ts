@@ -3,6 +3,10 @@ import { randomUUID } from 'crypto';
 import { gql } from 'graphql-tag';
 import { type DataSource } from 'typeorm';
 
+import { ClickHouseService } from 'src/database/clickhouse/clickhouse.service';
+import { CacheStorageService } from 'src/engine/core-modules/cache-storage/services/cache-storage.service';
+import { CacheStorageNamespace } from 'src/engine/core-modules/cache-storage/types/cache-storage-namespace.enum';
+import { getAppProviderByClassName } from 'test/integration/utils/get-app-provider-by-class-name.util';
 import { makeAdminPanelApiRequestWithGuestRole } from 'test/integration/graphql/suites/admin-panel/utils/make-admin-panel-api-request-with-guest-role.util';
 import { makeAdminPanelApiRequest } from 'test/integration/twenty-config/utils/make-admin-panel-api-request.util';
 
@@ -203,6 +207,163 @@ describe('Admin panel application registration stats and installed workspaces (i
     await dataSource.query(`DELETE FROM core."workspace" WHERE id = $1`, [
       deletedWorkspaceId,
     ]);
+  });
+
+  describe('credits used', () => {
+    const findCreditsUsed = gql`
+      query FindAdminApplicationRegistrationCreditsUsed($id: String!) {
+        findAdminApplicationRegistrationStats(id: $id) {
+          totalCreditsUsed
+          creditsUsedBreakdown {
+            key
+            resource
+            operation
+            creditsUsed
+          }
+        }
+      }
+    `;
+    let clickHouse: ClickHouseService;
+    let cache: CacheStorageService;
+    const cacheKey = () =>
+      `registration-credits-used:v1:${applicationRegistrationId}`;
+    const findStats = () =>
+      makeAdminPanelApiRequest({
+        query: findCreditsUsed,
+        variables: { id: applicationRegistrationId },
+      });
+
+    beforeAll(async () => {
+      clickHouse =
+        getAppProviderByClassName<ClickHouseService>('ClickHouseService');
+      cache = global.app.get<CacheStorageService>(
+        CacheStorageNamespace.ModuleApplications,
+      );
+      const timestamp = new Date()
+        .toISOString()
+        .replace('T', ' ')
+        .replace('Z', '');
+      const result = await clickHouse.insert('usageEvent', [
+        {
+          timestamp,
+          workspaceId: SEED_APPLE_WORKSPACE_ID,
+          applicationId: seededApplicationIds[0],
+          resourceType: 'LOGIC_FUNCTION',
+          operationType: 'CODE_EXECUTION',
+          creditsUsedMicro: 1_000_001,
+        },
+        {
+          timestamp,
+          workspaceId: SEED_APPLE_WORKSPACE_ID,
+          applicationId: seededApplicationIds[0],
+          resourceType: 'HISTORICAL_RESOURCE',
+          operationType: 'HISTORICAL_OPERATION',
+          creditsUsedMicro: 2_000_000,
+        },
+      ]);
+
+      expect(result.success).toBe(true);
+    });
+
+    beforeEach(async () => {
+      await cache.del(cacheKey());
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    afterAll(async () => {
+      await cache.del(cacheKey());
+      await clickHouse.getMainClient()?.command({
+        query:
+          'ALTER TABLE usageEvent DELETE WHERE applicationId = {applicationId:String} SETTINGS mutations_sync=1',
+        query_params: { applicationId: seededApplicationIds[0] },
+      });
+    });
+
+    it('does not query credits when the client requests only installation statistics', async () => {
+      const select = jest.spyOn(clickHouse, 'selectOrThrow');
+      const response = await makeAdminPanelApiRequest({
+        query: FIND_STATS,
+        variables: { id: applicationRegistrationId },
+      });
+
+      expect(response.body.errors).toBeUndefined();
+      expect(select).not.toHaveBeenCalled();
+    });
+
+    it('returns precise typed credits, reuses the cache, and checks authorization before cache access', async () => {
+      const select = jest.spyOn(clickHouse, 'selectOrThrow');
+      const response = await findStats();
+
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data.findAdminApplicationRegistrationStats).toEqual({
+        totalCreditsUsed: 3.000001,
+        creditsUsedBreakdown: [
+          {
+            key: 'HISTORICAL_OPERATION',
+            resource: null,
+            operation: null,
+            creditsUsed: 2,
+          },
+          {
+            key: 'CODE_EXECUTION',
+            resource: 'LOGIC_FUNCTION',
+            operation: 'CODE_EXECUTION',
+            creditsUsed: 1.000001,
+          },
+        ],
+      });
+      expect((await findStats()).body.data).toEqual(response.body.data);
+      const forbidden = await makeAdminPanelApiRequestWithGuestRole({
+        query: findCreditsUsed,
+        variables: { id: applicationRegistrationId },
+      });
+
+      expect(forbidden.body.errors).toBeDefined();
+      expect(select).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns live credits when the Redis cache and real lock infrastructure fail', async () => {
+      const lockCache = global.app.get<CacheStorageService>(
+        CacheStorageNamespace.EngineLock,
+      );
+      const acquire = jest
+        .spyOn(lockCache, 'acquireLock')
+        .mockRejectedValueOnce(new Error('Redis unavailable'));
+      jest
+        .spyOn(cache, 'get')
+        .mockRejectedValue(new Error('Redis unavailable'));
+      const response = await findStats();
+
+      expect(acquire).toHaveBeenCalled();
+      expect(response.body.errors).toBeUndefined();
+      expect(
+        response.body.data.findAdminApplicationRegistrationStats
+          .totalCreditsUsed,
+      ).toBe(3.000001);
+    });
+
+    it('caches unavailable usage as null and recovers after cache invalidation', async () => {
+      const select = jest
+        .spyOn(clickHouse, 'selectOrThrow')
+        .mockRejectedValueOnce(new Error('ClickHouse unavailable'));
+      const response = await findStats();
+
+      expect(response.body.errors).toBeUndefined();
+      expect(response.body.data.findAdminApplicationRegistrationStats).toEqual({
+        totalCreditsUsed: null,
+        creditsUsedBreakdown: null,
+      });
+      expect((await findStats()).body.data).toEqual(response.body.data);
+      expect(select).toHaveBeenCalledTimes(1);
+      await cache.del(cacheKey());
+      expect(
+        (await findStats()).body.data.findAdminApplicationRegistrationStats
+          .totalCreditsUsed,
+      ).toBe(3.000001);
+    });
   });
 
   describe('findAdminApplicationRegistrationStats', () => {

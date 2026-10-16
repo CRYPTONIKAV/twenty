@@ -1,13 +1,26 @@
 /* @license Enterprise */
 
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+
 import { isNonEmptyString } from '@sniptt/guards';
 
-import { Injectable } from '@nestjs/common';
-
 import { isNonEmptyArray } from 'twenty-shared/utils';
+import { DataSource } from 'typeorm';
 
 import { ClickHouseService } from 'src/database/clickhouse/clickhouse.service';
 import { formatDateTimeForClickHouse } from 'src/database/clickhouse/utils/format-date-time-for-clickhouse.util';
+import { ApplicationEntity } from 'src/engine/core-modules/application/application.entity';
+import { CacheLockService } from 'src/engine/core-modules/cache-lock/cache-lock.service';
+import { CacheLockException } from 'src/engine/core-modules/cache-lock/exceptions/cache-lock.exception';
+import { InjectCacheStorage } from 'src/engine/core-modules/cache-storage/decorators/cache-storage.decorator';
+import { CacheStorageService } from 'src/engine/core-modules/cache-storage/services/cache-storage.service';
+import { CacheStorageNamespace } from 'src/engine/core-modules/cache-storage/types/cache-storage-namespace.enum';
+import {
+  CREDITS_USED_CACHE_TTL,
+  CREDITS_USED_CACHE_RETRY_TTL,
+  CREDITS_USED_REFRESH_LOCK_TTL,
+} from 'src/engine/core-modules/usage/constants/credits-used-cache.constant';
 import { type SpenderType } from 'src/engine/core-modules/usage-limit/types/spender-type.type';
 import { UsageOperationType } from 'src/engine/core-modules/usage/enums/usage-operation-type.enum';
 import { UsageResourceType } from 'src/engine/core-modules/usage/enums/usage-resource-type.enum';
@@ -23,9 +36,11 @@ import { fillUsageTimeSeriesGaps } from 'src/engine/core-modules/usage/utils/fil
 import { toDisplayCredits } from 'src/engine/core-modules/usage/utils/to-display-credits.util';
 import { toDollars } from 'src/engine/core-modules/usage/utils/to-dollars.util';
 
-export type UsageBreakdownItem = {
+export type CreditUsedItem = {
   key: string;
   label?: string;
+  resource?: UsageResourceType | null;
+  operation?: UsageOperationType | null;
   creditsUsed: number;
 };
 
@@ -73,7 +88,140 @@ const DECLARED_OPERATION_KEY_SEPARATOR = ':';
 
 @Injectable()
 export class UsageAnalyticsService {
-  constructor(private readonly clickHouseService: ClickHouseService) {}
+  private readonly logger = new Logger(UsageAnalyticsService.name);
+
+  constructor(
+    private readonly clickHouseService: ClickHouseService,
+    @InjectDataSource()
+    private readonly coreDataSource: DataSource,
+    @InjectCacheStorage(CacheStorageNamespace.ModuleApplications)
+    private readonly cacheStorageService: CacheStorageService,
+    private readonly cacheLockService: CacheLockService,
+  ) {}
+
+  async getCreditsUsedBreakdownForRegistration(
+    applicationRegistrationId: string,
+  ): Promise<CreditUsedItem[] | null> {
+    const cacheKey = `registration-credits-used:v1:${applicationRegistrationId}`;
+    const readCache = () =>
+      this.cacheStorageService
+        .get<{ creditsUsedBreakdown: CreditUsedItem[] | null }>(cacheKey)
+        .then((cached) => cached?.creditsUsedBreakdown)
+        .catch((error) => {
+          this.logger.warn(
+            `Failed to read credits used cache for registration ${applicationRegistrationId}`,
+            error,
+          );
+          return undefined;
+        });
+    const cached = await readCache();
+
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    try {
+      return await this.cacheLockService.withLock(
+        async () => {
+          const cachedAfterLock = await readCache();
+
+          if (cachedAfterLock !== undefined) {
+            return cachedAfterLock;
+          }
+
+          const creditsUsedBreakdown = await this.loadCreditsUsedBreakdown(
+            applicationRegistrationId,
+          );
+
+          await this.cacheStorageService
+            .set(
+              cacheKey,
+              { creditsUsedBreakdown },
+              creditsUsedBreakdown === null
+                ? CREDITS_USED_CACHE_RETRY_TTL
+                : CREDITS_USED_CACHE_TTL,
+            )
+            .catch((error) => {
+              this.logger.warn(
+                `Failed to cache credits used for registration ${applicationRegistrationId}`,
+                error,
+              );
+            });
+
+          return creditsUsedBreakdown;
+        },
+        cacheKey,
+        { ttl: CREDITS_USED_REFRESH_LOCK_TTL },
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Failed to lock credits used refresh for registration ${applicationRegistrationId}`,
+        error,
+      );
+      return error instanceof CacheLockException
+        ? null
+        : this.loadCreditsUsedBreakdown(applicationRegistrationId);
+    }
+  }
+
+  private async loadCreditsUsedBreakdown(
+    applicationRegistrationId: string,
+  ): Promise<CreditUsedItem[] | null> {
+    try {
+      const applications = await this.coreDataSource
+        .createQueryBuilder(ApplicationEntity, 'application')
+        .select('application.id', 'id')
+        .innerJoin('application.workspace', 'workspace')
+        .where(
+          'application.applicationRegistrationId = :applicationRegistrationId',
+          { applicationRegistrationId },
+        )
+        .andWhere('workspace.deletedAt IS NULL')
+        .getRawMany<{ id: string }>();
+
+      return isNonEmptyArray(applications)
+        ? await this.getCreditsUsedBreakdownForApplications(
+            applications.map(({ id }) => id),
+          )
+        : [];
+    } catch (error) {
+      this.logger.warn(
+        `Failed to load credits used for registration ${applicationRegistrationId}`,
+        error,
+      );
+      return null;
+    }
+  }
+
+  async getCreditsUsedBreakdownForApplications(
+    applicationIds: string[],
+  ): Promise<CreditUsedItem[]> {
+    const rows = await this.clickHouseService.selectOrThrow<
+      BreakdownRowMicro<'resourceType' | 'operationType'>
+    >(
+      `SELECT resourceType, operationType, sum(creditsUsedMicro) AS creditsUsedMicro
+       FROM usageEvent
+       WHERE applicationId IN {applicationIds:Array(String)}
+       GROUP BY resourceType, operationType
+       HAVING creditsUsedMicro != 0
+       ORDER BY creditsUsedMicro DESC
+       SETTINGS max_execution_time = 10`,
+      { applicationIds },
+    );
+
+    return rows.map(({ resourceType, operationType, creditsUsedMicro }) => ({
+      key: operationType,
+      resource:
+        Object.values(UsageResourceType).find(
+          (resource) => resource === resourceType,
+        ) ?? null,
+      operation:
+        Object.values(UsageOperationType).find(
+          (operation) => operation === operationType,
+        ) ?? null,
+      creditsUsed: toDisplayCredits(Number(creditsUsedMicro)),
+    }));
+  }
 
   async getConsumptionRowsForAllScopes({
     workspaceId,
@@ -191,7 +339,7 @@ export class UsageAnalyticsService {
     periodStart: Date;
     periodEnd: Date;
     useDollarMode?: boolean;
-  }): Promise<UsageBreakdownItem[]> {
+  }): Promise<CreditUsedItem[]> {
     const aiOperationTypes = ['AI_CHAT_TOKEN', 'AI_WORKFLOW_TOKEN'];
 
     const convert = params.useDollarMode ? toDollars : toDisplayCredits;
@@ -224,7 +372,7 @@ export class UsageAnalyticsService {
     }));
   }
 
-  async getUsageByUser(params: PeriodParams): Promise<UsageBreakdownItem[]> {
+  async getUsageByUser(params: PeriodParams): Promise<CreditUsedItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'userWorkspaceId',
@@ -232,7 +380,7 @@ export class UsageAnalyticsService {
     });
   }
 
-  async getUsageByModel(params: PeriodParams): Promise<UsageBreakdownItem[]> {
+  async getUsageByModel(params: PeriodParams): Promise<CreditUsedItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'resourceContext',
@@ -242,7 +390,7 @@ export class UsageAnalyticsService {
 
   async getUsageByOperationType(
     params: PeriodParams & { userWorkspaceId?: string },
-  ): Promise<UsageBreakdownItem[]> {
+  ): Promise<CreditUsedItem[]> {
     return this.queryBreakdown({
       ...params,
       groupByField: 'operationType',
@@ -390,7 +538,7 @@ export class UsageAnalyticsService {
     groupByField: GroupByField;
     extraWhere?: string;
     extraParams?: Record<string, unknown>;
-  }): Promise<UsageBreakdownItem[]> {
+  }): Promise<CreditUsedItem[]> {
     if (
       !ALLOWED_GROUP_BY_FIELDS.includes(
         groupByField as (typeof ALLOWED_GROUP_BY_FIELDS)[number],

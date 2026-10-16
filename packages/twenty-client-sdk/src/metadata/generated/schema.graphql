@@ -537,8 +537,10 @@ enum ApplicationRegistrationSourceType {
 type ApplicationRegistrationStats {
   activeInstalls: Int!
   autoUpdateEnabled: Int!
+  creditsUsedBreakdown: [CreditUsedItem!]
   mostInstalledVersion: String
   suspendedInstalls: Int!
+  totalCreditsUsed: Float
   versionDistribution: [VersionDistributionEntry!]!
 }
 
@@ -1647,6 +1649,14 @@ input CreateWebhookInput {
   operations: [String!]!
   secret: String
   targetUrl: String!
+}
+
+type CreditUsedItem {
+  creditsUsed: Float!
+  key: String! @deprecated(reason: "Use resource and operation for operation breakdowns.")
+  label: String
+  operation: UsageOperationType
+  resource: UsageResourceType
 }
 
 input CursorPaging {
@@ -5304,8 +5314,10 @@ input UsageAnalyticsInput {
 
 type UsageBreakdownItem {
   creditsUsed: Float!
-  key: String!
+  key: String! @deprecated(reason: "Use resource and operation for operation breakdowns.")
   label: String
+  operation: UsageOperationType
+  resource: UsageResourceType
 }
 
 type UsageLimit {

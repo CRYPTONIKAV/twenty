@@ -1,7 +1,9 @@
 import { UseFilters, UseGuards, UsePipes } from '@nestjs/common';
-import { Args, Int, Mutation, Query } from '@nestjs/graphql';
+import { Args, Info, Int, Mutation, Query } from '@nestjs/graphql';
 import { InjectRepository } from '@nestjs/typeorm';
 
+import { type GraphQLResolveInfo } from 'graphql';
+import graphqlFields from 'graphql-fields';
 import GraphQLJSON from 'graphql-type-json';
 import { AI_MODEL_TIERS } from 'twenty-shared/ai';
 import { PermissionFlagType } from 'twenty-shared/constants';
@@ -764,8 +766,15 @@ export class AdminPanelResolver {
   @Query(() => ApplicationRegistrationStatsDTO)
   async findAdminApplicationRegistrationStats(
     @Args('id') id: string,
+    @Info() info: GraphQLResolveInfo,
   ): Promise<ApplicationRegistrationStatsDTO> {
-    return this.applicationRegistrationService.getStatsGlobal(id);
+    const fields = graphqlFields(info);
+
+    return this.applicationRegistrationService.getStatsGlobal(
+      id,
+      isDefined(fields.creditsUsedBreakdown) ||
+        isDefined(fields.totalCreditsUsed),
+    );
   }
 
   @UseGuards(AdminPanelGuard)

@@ -15,7 +15,7 @@ import { UsageAnalyticsInput } from 'src/engine/core-modules/usage/dtos/inputs/u
 import { UsageAnalyticsDTO } from 'src/engine/core-modules/usage/dtos/usage-analytics.dto';
 import {
   UsageAnalyticsService,
-  type UsageBreakdownItem,
+  type CreditUsedItem,
 } from 'src/engine/core-modules/usage/services/usage-analytics.service';
 import { consolidateUsageByApplication } from 'src/engine/core-modules/usage/utils/consolidate-usage-by-application.util';
 import { toDisplayCredits } from 'src/engine/core-modules/usage/utils/to-display-credits.util';
@@ -172,9 +172,9 @@ export class UsageResolver {
   }
 
   private async resolveBreakdownKeys(
-    items: UsageBreakdownItem[],
+    items: CreditUsedItem[],
     resolveNames: (ids: string[]) => Promise<Map<string, string>>,
-  ): Promise<UsageBreakdownItem[]> {
+  ): Promise<CreditUsedItem[]> {
     if (items.length === 0) {
       return items;
     }

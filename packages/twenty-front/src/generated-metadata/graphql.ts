@@ -595,8 +595,10 @@ export type ApplicationRegistrationStats = {
   __typename?: 'ApplicationRegistrationStats';
   activeInstalls: Scalars['Int']['output'];
   autoUpdateEnabled: Scalars['Int']['output'];
+  creditsUsedBreakdown?: Maybe<Array<CreditUsedItem>>;
   mostInstalledVersion?: Maybe<Scalars['String']['output']>;
   suspendedInstalls: Scalars['Int']['output'];
+  totalCreditsUsed?: Maybe<Scalars['Float']['output']>;
   versionDistribution: Array<VersionDistributionEntry>;
 };
 
@@ -1754,6 +1756,16 @@ export type CreateWebhookInput = {
   operations: Array<Scalars['String']['input']>;
   secret?: InputMaybe<Scalars['String']['input']>;
   targetUrl: Scalars['String']['input'];
+};
+
+export type CreditUsedItem = {
+  __typename?: 'CreditUsedItem';
+  creditsUsed: Scalars['Float']['output'];
+  /** @deprecated Use resource and operation for operation breakdowns. */
+  key: Scalars['String']['output'];
+  label?: Maybe<Scalars['String']['output']>;
+  operation?: Maybe<UsageOperationType>;
+  resource?: Maybe<UsageResourceType>;
 };
 
 export type CursorPaging = {
@@ -7426,8 +7438,11 @@ export type UsageAnalyticsInput = {
 export type UsageBreakdownItem = {
   __typename?: 'UsageBreakdownItem';
   creditsUsed: Scalars['Float']['output'];
+  /** @deprecated Use resource and operation for operation breakdowns. */
   key: Scalars['String']['output'];
   label?: Maybe<Scalars['String']['output']>;
+  operation?: Maybe<UsageOperationType>;
+  resource?: Maybe<UsageResourceType>;
 };
 
 export type UsageLimit = {
